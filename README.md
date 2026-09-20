@@ -4,23 +4,6 @@ A single-agent research assistant. Give it a topic; it searches the web and writ
 
 **Stack:** [CrewAI](https://docs.crewai.com) · [Groq](https://console.groq.com) (`openai/gpt-oss-120b`) · DuckDuckGo (`ddgs`) · [Streamlit](https://streamlit.io)
 
-## Project structure
-
-```
-ai-research-agent/
-├── app.py                     # Streamlit UI
-├── research_agent/
-│   ├── __init__.py
-│   ├── config.py              # model name, depth presets
-│   ├── tools.py               # DuckDuckGo search tool
-│   └── crew.py                # agent + task + crew
-├── .streamlit/
-│   ├── config.toml            # theme
-│   └── secrets.toml.example   # template for your API key
-├── .env.example
-├── requirements.txt
-└── .gitignore
-```
 
 ## Run locally
 
