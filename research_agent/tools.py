@@ -3,8 +3,8 @@
 from crewai.tools import tool
 from ddgs import DDGS
 
-MAX_RESULTS = 6
-SNIPPET_CHARS = 350  # keep snippets short so we stay inside Groq's token limits
+MAX_RESULTS = 4
+SNIPPET_CHARS = 250  # keep snippets short so we stay inside Groq's token limits
 
 
 @tool("Web Search")
