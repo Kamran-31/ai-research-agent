@@ -39,7 +39,7 @@ with st.sidebar:
     depth = st.radio(
         "Research depth",
         list(DEPTH_PRESETS),
-        index=1,
+        index=0,
         help="Deeper = more searches and a longer report (slower, uses more tokens).",
     )
     st.divider()
