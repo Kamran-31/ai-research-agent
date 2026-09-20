@@ -1,0 +1,11 @@
+# Core framework (the [litellm] extra is what enables the "groq/" provider prefix)
+crewai[litellm]>=1.15.0,<1.16.0
+
+# UI
+streamlit>=1.55,<2.0
+
+# Free web search (the package formerly known as duckduckgo-search)
+ddgs>=9.0.0
+
+# Load .env files when running locally
+python-dotenv>=1.0.0
