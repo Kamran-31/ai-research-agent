@@ -33,8 +33,9 @@ def _build_task(agent: Agent, searches: int, words: str) -> Task:
     description = f"""Research the topic: {{topic}}
 
 Process:
-1. Run about {searches} different web searches covering different angles
-   (background, current state, key players, recent developments, risks/debates).
+1. Run about {searches} different searches with the duckduckgo_search tool. Every call
+   must include a "query" string. Cover different angles (background, current state,
+   key players, recent developments, risks/debates).
 2. Only use facts that appear in the search results. Never fabricate URLs.
 3. Write the final report in Markdown, {words} words.
 
