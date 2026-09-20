@@ -2,8 +2,12 @@
 
 from crewai import Agent, Crew, LLM, Process, Task
 
+from .compat import apply_groq_patches
 from .config import DEPTH_PRESETS, MODEL_NAME, TEMPERATURE
 from .tools import web_search
+
+# Work around CrewAI sending a field ("cache_breakpoint") that Groq rejects.
+apply_groq_patches()
 
 
 def _build_agent(api_key: str, searches: int) -> Agent:
