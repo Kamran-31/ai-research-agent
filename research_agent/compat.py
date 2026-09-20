@@ -1,4 +1,7 @@
-"""Compatibility patch for CrewAI 1.15.x + Groq.
+"""Compatibility patches for CrewAI 1.15.x + Groq.
+
+Patch 1 - cache_breakpoint (see below).
+Patch 2 - automatic retry when Groq's free-tier tokens-per-minute limit is hit.
 
 Problem: CrewAI adds an Anthropic-only marker key ("cache_breakpoint") to the
 messages it sends. Anthropic understands it; Groq rejects it with:
@@ -10,7 +13,10 @@ Each step is independent and fails silently, so a future CrewAI fix won't break 
 
 import asyncio
 import functools
+import re
 import sys
+import threading
+import time
 
 _KEY = "cache_breakpoint"
 _FLAG = "_research_agent_patched"
@@ -25,6 +31,62 @@ def _strip(messages):
         for m in messages
     ]
 
+
+# ---------------------------------------------------------------- rate limits
+_MAX_ATTEMPTS = 6
+_MAX_WAIT = 75.0  # seconds; longer waits usually mean a DAILY limit, so give up
+_state = threading.local()
+
+
+def _is_rate_limit(exc: Exception) -> bool:
+    return "RateLimitError" in type(exc).__name__ or "rate_limit_exceeded" in str(exc)
+
+
+def _wait_seconds(exc: Exception) -> float:
+    """Read Groq's 'Please try again in 13.9s' hint (also handles 1m5s / 850ms)."""
+    m = re.search(r"try again in (?:(\d+)m)?\s*([\d.]+)(ms|s)", str(exc))
+    if not m:
+        return 15.0
+    minutes = int(m.group(1) or 0)
+    value = float(m.group(2)) / (1000 if m.group(3) == "ms" else 1)
+    return minutes * 60 + value + 1.0
+
+
+def _with_retry(fn):
+    """Retry `fn` when Groq says 'rate limit', waiting as long as Groq asks."""
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        if getattr(_state, "active", False):  # already inside a retrying call
+            return fn(*args, **kwargs)
+        _state.active = True
+        try:
+            for attempt in range(1, _MAX_ATTEMPTS + 1):
+                try:
+                    return fn(*args, **kwargs)
+                except Exception as exc:
+                    if not _is_rate_limit(exc) or attempt == _MAX_ATTEMPTS:
+                        raise
+                    wait = _wait_seconds(exc)
+                    if wait > _MAX_WAIT:
+                        raise
+                    time.sleep(wait)
+        finally:
+            _state.active = False
+
+    setattr(wrapper, _FLAG, True)
+    return wrapper
+
+
+def _patch_retry() -> None:
+    from crewai.llm import LLM
+
+    original = getattr(LLM, "call", None)
+    if original is not None and not getattr(original, _FLAG, False):
+        LLM.call = _with_retry(original)
+
+
+# ------------------------------------------------------- cache_breakpoint bug
 
 def _disable_marker_injection() -> None:
     """Replace mark_cache_breakpoint() with a no-op everywhere it was imported."""
@@ -79,12 +141,14 @@ def _patch_litellm() -> None:
                     kwargs["messages"] = _strip(kwargs["messages"])
                 return __orig(*args, **kwargs)
 
+            wrapper = _with_retry(wrapper)
+
         setattr(wrapper, _FLAG, True)
         setattr(litellm, name, wrapper)
 
 
 def apply_groq_patches() -> None:
-    for step in (_disable_marker_injection, _patch_crewai_llm, _patch_litellm):
+    for step in (_disable_marker_injection, _patch_crewai_llm, _patch_litellm, _patch_retry):
         try:
             step()
         except Exception:  # never let a compatibility helper crash the app
