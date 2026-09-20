@@ -38,12 +38,19 @@ _MAX_WAIT = 75.0  # seconds; longer waits usually mean a DAILY limit, so give up
 _state = threading.local()
 
 
-def _is_rate_limit(exc: Exception) -> bool:
-    return "RateLimitError" in type(exc).__name__ or "rate_limit_exceeded" in str(exc)
+def _is_retryable(exc: Exception) -> bool:
+    text = str(exc)
+    return (
+        "RateLimitError" in type(exc).__name__
+        or "rate_limit_exceeded" in text
+        or "tool_use_failed" in text  # model emitted a badly formed tool call
+    )
 
 
 def _wait_seconds(exc: Exception) -> float:
     """Read Groq's 'Please try again in 13.9s' hint (also handles 1m5s / 850ms)."""
+    if "tool_use_failed" in str(exc):
+        return 1.0  # no need to wait; just ask the model again
     m = re.search(r"try again in (?:(\d+)m)?\s*([\d.]+)(ms|s)", str(exc))
     if not m:
         return 15.0
@@ -65,7 +72,7 @@ def _with_retry(fn):
                 try:
                     return fn(*args, **kwargs)
                 except Exception as exc:
-                    if not _is_rate_limit(exc) or attempt == _MAX_ATTEMPTS:
+                    if not _is_retryable(exc) or attempt == _MAX_ATTEMPTS:
                         raise
                     wait = _wait_seconds(exc)
                     if wait > _MAX_WAIT:
