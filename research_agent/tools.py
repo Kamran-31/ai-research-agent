@@ -7,11 +7,11 @@ MAX_RESULTS = 4
 SNIPPET_CHARS = 250  # keep snippets short so we stay inside Groq's token limits
 
 
-@tool("Web Search")
+@tool("DuckDuckGo Search")
 def web_search(query: str) -> str:
     """Search the web with DuckDuckGo.
 
-    Input: a focused search query (3-10 words works best).
+    Always call this with a "query" argument: a focused search phrase (3-10 words).
     Output: a numbered list of results with title, URL and a short snippet.
     """
     try:
